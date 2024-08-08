@@ -33,10 +33,9 @@ group_init :: proc(tile: Tile, hex: Hex, board: ^Board) -> (ret: Group, ok: bool
 group_capture :: proc(winner, loser: ^Group, board: ^Board) {
 
 	loser.alive = false
-	loser_hexes := bb_to_hexes(loser.tiles)
-	defer delete(loser_hexes)
 
-	for hex in loser_hexes {
+	bbi := bb_make_iter(loser.tiles)
+	for hex in bb_hexes(&bbi) {
 		tile, _ := board_get_tile(board, hex)
 		tile_flip(tile)
 	}
@@ -44,10 +43,8 @@ group_capture :: proc(winner, loser: ^Group, board: ^Board) {
 	winner.tiles |= loser.tiles
 	winner.liberties = {}
 
-	hexes := bb_to_hexes(winner.tiles)
-	defer delete(hexes)
-
-	for hex in hexes {
+	bbi = bb_make_iter(winner.tiles)
+	for hex in bb_hexes(&bbi) {
 		tile, _ := board_get_tile(board, hex)
 		for flag in tile^ & CONNECTION_FLAGS {
 			nbr := hex + flag_neighbor(flag)

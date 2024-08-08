@@ -31,16 +31,26 @@ bb_get_bit :: proc(bb: Bitboard, bit: int) -> bool {
 	return col in bb[row]
 }
 
-bb_to_hexes :: proc(bb: Bitboard) -> (ret: HexMap) {
-	#unroll for i in 0 ..< CELL_COUNT {
-		if bb_get_bit(bb, i) do ret[hex_from_index(i)] = {}
-	}
+Bitboard_Iterator :: struct {
+	bb:   Bitboard,
+	next: int,
+}
+
+bb_make_iter :: proc(bb: Bitboard) -> (it: Bitboard_Iterator) {
+	it.bb = bb
 	return
 }
 
-bb_from_hexes :: proc(hexes: HexMap) -> (ret: Bitboard) {
-	for hex in hexes do bb_set_bit(&ret, hex_to_index(hex))
-	delete(hexes) // is this correct?
+bb_hexes :: proc(it: ^Bitboard_Iterator) -> (item: Hex, idx: int, ok: bool) {
+	for i in it.next ..< CELL_COUNT {
+		if bb_get_bit(it.bb, i) {
+			item = hex_from_index(i)
+			it.next = i + 1
+			idx += 1
+			ok = true
+			return
+		}
+	}
 
 	return
 }
