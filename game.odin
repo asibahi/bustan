@@ -39,6 +39,8 @@ game_init :: proc() -> (ret: Game) {
 }
 
 game_get_score :: proc(game: ^Game) -> (guest, host: int) {
+	// A players territory consists of the number of his pieces on the board minus the number of pieces he didn't place.
+
 	// maybe better as struct fields updated as moves are made?
 	for tile in game.board {
 		(!tile_is_empty(tile)) or_continue
@@ -47,6 +49,14 @@ game_get_score :: proc(game: ^Game) -> (guest, host: int) {
 		} else {
 			guest += 1
 		}
+	}
+	for tile in game.guest_hand {
+		(!tile_is_empty(tile)) or_continue
+		guest -= 1
+	}
+	for tile in game.host_hand {
+		(!tile_is_empty(tile)) or_continue
+		host -= 1
 	}
 
 	return
