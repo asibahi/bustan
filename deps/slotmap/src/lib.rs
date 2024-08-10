@@ -1,13 +1,12 @@
 #![allow(clippy::missing_safety_doc)]
 
-use core::ffi::c_void;
 use slotmap::{DefaultKey, Key, KeyData, SlotMap};
-
-type SmPtr = *mut SlotMap<DefaultKey, *mut c_void>;
+type SmItem = *mut core::ffi::c_void;
+type SmPtr = *mut SlotMap<DefaultKey, SmItem>;
 
 #[no_mangle]
 pub extern "C" fn slotmap_init() -> SmPtr {
-    let sm = Box::new(SlotMap::<_, *mut c_void>::new());
+    let sm = Box::new(SlotMap::<_, SmItem>::new());
     Box::into_raw(sm)
 }
 
@@ -17,7 +16,7 @@ pub unsafe extern "C" fn slotmap_destroy(sm: SmPtr) {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn slotmap_insert(sm: SmPtr, item: *mut c_void) -> u64 {
+pub unsafe extern "C" fn slotmap_insert(sm: SmPtr, item: SmItem) -> u64 {
     let Some(sm) = (unsafe { sm.as_mut() }) else {
         return 0;
     };
@@ -35,7 +34,7 @@ pub unsafe extern "C" fn slotmap_contains_key(sm: SmPtr, key: u64) -> bool {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn slotmap_get(sm: SmPtr, key: u64) -> *mut c_void {
+pub unsafe extern "C" fn slotmap_get(sm: SmPtr, key: u64) -> SmItem {
     let Some(sm) = (unsafe { sm.as_mut() }) else {
         return core::ptr::null_mut();
     };
@@ -45,7 +44,7 @@ pub unsafe extern "C" fn slotmap_get(sm: SmPtr, key: u64) -> *mut c_void {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn slotmap_remove(sm: SmPtr, key: u64) -> *mut c_void {
+pub unsafe extern "C" fn slotmap_remove(sm: SmPtr, key: u64) -> SmItem {
     let Some(sm) = (unsafe { sm.as_mut() }) else {
         return core::ptr::null_mut();
     };
