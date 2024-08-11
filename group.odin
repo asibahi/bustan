@@ -57,3 +57,12 @@ group_capture :: proc(winner, loser: ^Group, board: ^Board) {
 	}
 
 }
+
+group_size :: proc(grp: ^Group) -> int {
+	return bb_card(grp.tiles)
+}
+
+
+group_life :: proc(grp: ^Group) -> int {
+	return bb_card(grp.liberties)
+}

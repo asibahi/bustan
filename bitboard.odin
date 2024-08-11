@@ -31,6 +31,13 @@ bb_get_bit :: proc(bb: Bitboard, bit: int) -> bool {
 	return col in bb[row]
 }
 
+bb_card :: proc(bb: Bitboard) -> (ret: int) {
+	#unroll for i in 0 ..< 7 {
+		ret += card(bb[i])
+	}
+	return
+}
+
 Bitboard_Iterator :: struct {
 	bb:   Bitboard,
 	next: int,
