@@ -1,7 +1,6 @@
 package main
 
 // Hex Connection directions
-// Do I even need these
 TOP_RIGHT :: Hex{1, -1}
 RIGHT :: Hex{1, 0}
 BTM_RIGHT :: Hex{0, 1}
@@ -39,20 +38,20 @@ Tile :: distinct bit_set[Tile_Flag;u8]
 HOST_FLAGS :: Tile{.Owner_Is_Host, .Controller_Is_Host}
 CONNECTION_FLAGS :: ~HOST_FLAGS
 
-flag_neighbor :: proc(flag: Tile_Flag) -> (ret: Hex) {
+flag_dir :: proc(flag: Tile_Flag) -> (ret: Hex) {
 	#partial switch flag {
-		case .Top_Right:
-			ret = TOP_RIGHT
-		case .Right:
-			ret = RIGHT
-		case .Btm_Right:
-			ret = BTM_RIGHT
-		case .Btm_Left:
-			ret = BTM_LEFT
-		case .Left:
-			ret = LEFT
-		case .Top_Left:
-			ret = TOP_LEFT
+	case .Top_Right:
+		ret = TOP_RIGHT
+	case .Right:
+		ret = RIGHT
+	case .Btm_Right:
+		ret = BTM_RIGHT
+	case .Btm_Left:
+		ret = BTM_LEFT
+	case .Left:
+		ret = LEFT
+	case .Top_Left:
+		ret = TOP_LEFT
 	}
 	return
 }
@@ -71,9 +70,9 @@ tile_from_id :: proc(id: u8, player: Player) -> (ret: Tile) {
 
 	ret = transmute(Tile)id
 	switch player {
-		case .Host:
-			ret |= HOST_FLAGS
-		case .Guest:
+	case .Host:
+		ret |= HOST_FLAGS
+	case .Guest:
 	}
 
 	return

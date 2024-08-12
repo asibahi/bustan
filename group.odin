@@ -5,9 +5,6 @@ Group :: struct {
 	// This may require some bookkeeping
 	tiles:     Bitboard,
 	liberties: Bitboard,
-	//
-	// is this needed?
-	alive:     bool,
 }
 
 group_init :: proc(tile: Tile, hex: Hex, board: ^Board) -> (ret: Group, ok: bool = true) {
@@ -17,12 +14,11 @@ group_init :: proc(tile: Tile, hex: Hex, board: ^Board) -> (ret: Group, ok: bool
 	// liberties 
 	// this is currently incorrect: does not look at friendliness of neighbors
 	for flag in tile & CONNECTION_FLAGS {
-		nbr := hex + flag_neighbor(flag)
+		nbr := hex + flag_dir(flag)
 
 		t, in_bounds := board_get_tile(board, nbr)
 		if in_bounds && tile_is_empty(t^) {
 			bb_set_bit(&ret.liberties, hex_to_index(nbr))
-			ret.alive = true
 		}
 	}
 
@@ -31,9 +27,6 @@ group_init :: proc(tile: Tile, hex: Hex, board: ^Board) -> (ret: Group, ok: bool
 
 // does not check for whether the capture is illegal (causes oscillation)
 group_capture :: proc(winner, loser: ^Group, board: ^Board) {
-
-	loser.alive = false
-
 	bbi := bb_make_iter(loser.tiles)
 	for hex in bb_hexes(&bbi) {
 		tile, _ := board_get_tile(board, hex)
@@ -47,7 +40,7 @@ group_capture :: proc(winner, loser: ^Group, board: ^Board) {
 	for hex in bb_hexes(&bbi) {
 		tile, _ := board_get_tile(board, hex)
 		for flag in tile^ & CONNECTION_FLAGS {
-			nbr := hex + flag_neighbor(flag)
+			nbr := hex + flag_dir(flag)
 
 			t, in_bounds := board_get_tile(board, nbr)
 			if in_bounds && tile_is_empty(t^) {
@@ -61,7 +54,6 @@ group_capture :: proc(winner, loser: ^Group, board: ^Board) {
 group_size :: proc(grp: ^Group) -> int {
 	return bb_card(grp.tiles)
 }
-
 
 group_life :: proc(grp: ^Group) -> int {
 	return bb_card(grp.liberties)

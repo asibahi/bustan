@@ -41,33 +41,46 @@ game_init :: proc() -> (ret: Game) {
 	return
 }
 
+game_destroy :: proc(game: Game) {
+	// is this enough?
+	slotmap_destroy(game.guest_grps)
+	slotmap_destroy(game.host_grps)
+
+	delete(game.legal_moves)
+	return
+}
+
 game_make_move :: proc(game: ^Game, candidate: Maybe(Move)) -> bool {
 	(game.status == .Ongoing) or_return // Game is over. What are you doing?
+	move, not_pass := candidate.?
 
-	move, ok := candidate.?
-	if !ok { 	// Pass
-		if game.last_move == nil {
-			// todo: calculate scores and update the game status
-			return true
-		}
+	// legal move check
+	(!not_pass && slice.contains(game.legal_moves[:], move)) or_return
+
+	defer if game.status == .Ongoing {
 		switch game.to_play {
-			case .Guest:
-				game.to_play = .Host
-			case .Host:
-				game.to_play = .Guest
+		case .Guest:
+			game.to_play = .Host
+		case .Host:
+			game.to_play = .Guest
 		}
-		game.last_move = nil
+		game.last_move = move
 		game_regen_legal_moves(game)
+	}
+
+	if !not_pass { 	// Pass
+		if game.last_move == nil { 	// Game ends
+			guest, host := game_get_score(game)
+
+			if guest > host do game.status = .Guest_Win
+			else if guest < host do game.status = .Host_Win
+			else do game.status = .Tie
+		}
 		return true
 	}
 
-	slice.contains(game.legal_moves[:], move) or_return
-	defer {
-		game.last_move = candidate
-		game_regen_legal_moves(game)
-	}
-
-	game.board[hex_to_index(move.hex)] = move.tile // we already know it is legal!!
+	// Make move. Already known to be legal!!
+	game.board[hex_to_index(move.hex)] = move.tile
 
 	// todo: update game state
 
@@ -85,7 +98,7 @@ game_regen_legal_moves :: proc(game: ^Game) {
 game_get_score :: proc(game: ^Game) -> (guest, host: int) {
 	// maybe better as struct fields updated as moves are made?
 	for tile in game.board {
-		(!tile_is_empty(tile)) or_continue
+		if tile_is_empty(tile) do continue
 		if .Controller_Is_Host in tile {
 			host += 1
 		} else {
