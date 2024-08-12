@@ -42,11 +42,25 @@ game_init :: proc() -> (ret: Game) {
 }
 
 game_destroy :: proc(game: Game) {
-	// is this enough?
+	// free all the remaining groups
+	for key in game.groups_map {
+		if slotmap_contains_key(game.guest_grps, key) {
+			grp := slotmap_get(game.guest_grps, key)
+			free(grp)
+		} else if slotmap_contains_key(game.host_grps, key) {
+			grp := slotmap_get(game.host_grps, key)
+			free(grp)
+		}
+	}
+
+	// free the slotmaps
 	slotmap_destroy(game.guest_grps)
 	slotmap_destroy(game.host_grps)
 
+	// delete the dynamic map
 	delete(game.legal_moves)
+
+	// Is this enough?
 	return
 }
 
@@ -79,8 +93,30 @@ game_make_move :: proc(game: ^Game, candidate: Maybe(Move)) -> bool {
 		return true
 	}
 
+	active_hand: ^Hand
+	friendly_grps, enemy_grps: Slot_Map
+
+	switch game.to_play {
+	case .Guest:
+		active_hand = &game.guest_hand
+		friendly_grps = game.guest_grps
+		enemy_grps = game.host_grps
+	case .Host:
+		active_hand = &game.host_hand
+		friendly_grps = game.host_grps
+		enemy_grps = game.guest_grps
+	}
+
 	// Make move. Already known to be legal!!
+	_, removed := hand_remove_tile(active_hand, move.tile)
+	assert(removed)
 	game.board[hex_to_index(move.hex)] = move.tile
+
+	// First, deal with the case where a Tile starts its own Section
+	if grp, ok := group_section_init(move, game); ok {
+		key := slotmap_insert(friendly_grps, grp)
+		game.groups_map[hex_to_index(move.hex)] = key
+	}
 
 	// todo: update game state
 

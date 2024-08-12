@@ -12,19 +12,15 @@ hands_init :: proc() -> (guest: Hand, host: Hand) {
 	return
 }
 
-hand_has_tile :: proc(hand: Hand, id: u8) -> bool {
-	assert(0 < id, "Blank Tile is not playable")
-	assert(id <= HAND_SIZE, "Tile is impossible")
+hand_remove_tile :: proc(hand: ^Hand, tile: Tile) -> (ret: Tile, ok: bool = true) {
+	(!tile_is_empty(tile)) or_return
 
-	return !tile_is_empty(hand[id - 1])
-}
+	id := transmute(u8)(tile & CONNECTION_FLAGS)
+	(!tile_is_empty(hand[id - 1])) or_return
 
-hand_get_tile :: proc(hand: ^Hand, id: u8) -> (Tile, bool) {
-	if !hand_has_tile(hand^, id) do return nil, false
-
-	ret := hand[id - 1]
+	ret = hand[id - 1]
 	hand[id - 1] = {}
-	return ret, true
+	return
 }
 
 // tests 
@@ -46,18 +42,19 @@ test_hand_init :: proc(t: ^testing.T) {
 
 @(test)
 test_hand_get_tile :: proc(t: ^testing.T) {
-	w, _ := hands_init()
+	_, b := hands_init()
 
-	tile: Tile
 	ok: bool
 
 	// should be successful
-	tile, ok = hand_get_tile(&w, 63)
-	testing.expect(t, !tile_is_empty(tile))
+	_, ok = hand_remove_tile(&b, CONNECTION_FLAGS | HOST_FLAGS)
 	testing.expect(t, ok)
 
-	// should fail. tile was emptied
-	tile, ok = hand_get_tile(&w, 63)
-	testing.expect(t, tile_is_empty(tile))
+	// should fail. already removed
+	_, ok = hand_remove_tile(&b, CONNECTION_FLAGS)
+	testing.expect(t, !ok)
+
+	// should fail. Tail requested is empty
+	_, ok = hand_remove_tile(&b, {})
 	testing.expect(t, !ok)
 }

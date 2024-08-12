@@ -7,20 +7,25 @@ Group :: struct {
 	liberties: Bitboard,
 }
 
-group_init :: proc(tile: Tile, hex: Hex, board: ^Board) -> (ret: Group, ok: bool = true) {
-	idx := hex_to_index(hex) or_return
-	bb_set_bit(&ret.tiles, idx)
+// Call this when a Tile starts its own Section. 
+// Should only be called if the move is known to be legal.
+@(private)
+group_section_init :: proc(move: Move, game: ^Game) -> (ret: ^Group, ok: bool = true) {
+	ret = new(Group) // store it on the heap
+	
+	// Check that all Connected sides connect to empty tiles.
+	// AND find Liberties
+	for flag in move.tile & CONNECTION_FLAGS {
+		neighbor := move.hex + flag_dir(flag)
 
-	// liberties 
-	// this is currently incorrect: does not look at friendliness of neighbors
-	for flag in tile & CONNECTION_FLAGS {
-		nbr := hex + flag_dir(flag)
-
-		t, in_bounds := board_get_tile(board, nbr)
-		if in_bounds && tile_is_empty(t^) {
-			bb_set_bit(&ret.liberties, hex_to_index(nbr))
+		t, in_bounds := board_get_tile(&game.board, neighbor)
+		if in_bounds {
+			tile_is_empty(t^) or_return
+			bb_set_bit(&ret.liberties, hex_to_index(neighbor))
 		}
 	}
+
+	bb_set_bit(&ret.tiles, hex_to_index(move.hex) )
 
 	return
 }
