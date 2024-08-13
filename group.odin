@@ -5,15 +5,21 @@ Group :: struct {
 	// This may require some bookkeeping
 	tiles:     Bitboard,
 	liberties: Bitboard,
+	// Additional meta data is stored in the 7 DATA_AREA bits
+	// 
+	// Extendable: Check Liberties bit CELL_COUNT
+}
+
+// Extendable: whether the Group is its whole section
+@(private)
+group_is_extendable :: proc(grp: ^Group) -> bool {
+	return bb_get_bit(grp.liberties, CELL_COUNT)
 }
 
 // Call this when a Tile starts its own Section. 
 // Should only be called if the move is known to be legal.
 @(private)
-group_section_init :: proc(move: Move, game: ^Game) -> (ret: ^Group, ok: bool = true) {
-	ret = new(Group) // store it on the heap
-	defer if !ok do free(ret)
-
+group_section_init :: proc(move: Move, game: ^Game) -> (ret: Group, ok: bool = true) {
 	// Check that all Connected sides connect to empty tiles.
 	// AND find Liberties
 	for flag in move.tile & CONNECTION_FLAGS {
@@ -27,6 +33,9 @@ group_section_init :: proc(move: Move, game: ^Game) -> (ret: ^Group, ok: bool = 
 	}
 
 	bb_set_bit(&ret.tiles, hex_to_index(move.hex))
+
+	// Extendable Flag
+	bb_set_bit_unchecked(&ret.liberties, CELL_COUNT)
 
 	return
 }

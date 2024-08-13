@@ -120,6 +120,7 @@ game_make_move :: proc(game: ^Game, candidate: Maybe(Move)) -> bool {
 
 	// First, deal with the case where a Tile starts its own Section
 	if grp, ok := group_section_init(move, game); ok {
+		grp := new_clone(grp)
 		key := slotmap_insert(friendly_grps, grp)
 		game.groups_map[hex_to_index(move.hex)] = key
 	}

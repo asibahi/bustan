@@ -6,24 +6,47 @@ package main
 // so we need to make our own bitboard 
 
 Bitboard :: distinct [7]bit_set[0 ..< 32;u32] // 7 * 32 = 224
-HexMap :: distinct map[Hex]struct {}
+PLAY_AREA: Bitboard : {~{}, ~{}, ~{}, ~{}, ~{}, ~{}, ~{25, 26, 27, 28, 29, 30, 31}}
+DATA_AREA: Bitboard : {{}, {}, {}, {}, {}, {}, {25, 26, 27, 28, 29, 30, 31}}
 
 @(private = "file")
 bit_to_col_row :: proc(bit: int) -> (col, row: int) {
-	assert(0 <= bit && bit < CELL_COUNT)
 	col = bit % 32
 	row = bit / 32
 	return
 }
 
 bb_flip_bit :: proc(bb: ^Bitboard, bit: int) {
+	assert(0 <= bit && bit < CELL_COUNT)
+	col, row := bit_to_col_row(bit)
+	bb^[row] ~= {col}
+}
+
+bb_flip_bit_unchecked :: proc(bb: ^Bitboard, bit: int) {
 	col, row := bit_to_col_row(bit)
 	bb^[row] ~= {col}
 }
 
 bb_set_bit :: proc(bb: ^Bitboard, bit: int) {
+	assert(0 <= bit && bit < CELL_COUNT)
 	col, row := bit_to_col_row(bit)
 	bb^[row] |= {col}
+}
+
+bb_set_bit_unchecked :: proc(bb: ^Bitboard, bit: int) {
+	col, row := bit_to_col_row(bit)
+	bb^[row] |= {col}
+}
+
+bb_unset_bit :: proc(bb: ^Bitboard, bit: int) {
+	assert(0 <= bit && bit < CELL_COUNT)
+	col, row := bit_to_col_row(bit)
+	bb^[row] &~= {col}
+}
+
+bb_unset_bit_unchecked :: proc(bb: ^Bitboard, bit: int) {
+	col, row := bit_to_col_row(bit)
+	bb^[row] &~= {col}
 }
 
 bb_get_bit :: proc(bb: Bitboard, bit: int) -> bool {
@@ -32,8 +55,9 @@ bb_get_bit :: proc(bb: Bitboard, bit: int) -> bool {
 }
 
 bb_card :: proc(bb: Bitboard) -> (ret: int) {
+	temp := bb & PLAY_AREA // ignore special flags
 	#unroll for i in 0 ..< 7 {
-		ret += card(bb[i])
+		ret += card(temp[i])
 	}
 	return
 }
@@ -44,7 +68,7 @@ Bitboard_Iterator :: struct {
 }
 
 bb_make_iter :: proc(bb: Bitboard) -> (it: Bitboard_Iterator) {
-	it.bb = bb
+	it.bb = bb & PLAY_AREA
 	return
 }
 
