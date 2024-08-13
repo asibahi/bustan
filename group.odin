@@ -12,7 +12,8 @@ Group :: struct {
 @(private)
 group_section_init :: proc(move: Move, game: ^Game) -> (ret: ^Group, ok: bool = true) {
 	ret = new(Group) // store it on the heap
-	
+	defer if !ok do free(ret)
+
 	// Check that all Connected sides connect to empty tiles.
 	// AND find Liberties
 	for flag in move.tile & CONNECTION_FLAGS {
@@ -25,7 +26,7 @@ group_section_init :: proc(move: Move, game: ^Game) -> (ret: ^Group, ok: bool = 
 		}
 	}
 
-	bb_set_bit(&ret.tiles, hex_to_index(move.hex) )
+	bb_set_bit(&ret.tiles, hex_to_index(move.hex))
 
 	return
 }
