@@ -69,7 +69,12 @@ game_make_move :: proc(game: ^Game, candidate: Maybe(Move)) -> bool {
 	move, not_pass := candidate.?
 
 	// legal move check
-	(!not_pass && slice.contains(game.legal_moves[:], move)) or_return
+	// A pass is always legal.
+	// any move on an empty board is legal
+	// otherwise, game.legal_moves must contain the move
+	(!not_pass ||
+		slice.contains(game.legal_moves[:], move) ||
+		board_is_empty(&game.board)) or_return
 
 	defer if game.status == .Ongoing {
 		switch game.to_play {
@@ -83,6 +88,7 @@ game_make_move :: proc(game: ^Game, candidate: Maybe(Move)) -> bool {
 	}
 
 	if !not_pass { 	// Pass
+		// Bug here: game immediately ends if the first move is a pass.
 		if game.last_move == nil { 	// Game ends
 			guest, host := game_get_score(game)
 
@@ -108,9 +114,9 @@ game_make_move :: proc(game: ^Game, candidate: Maybe(Move)) -> bool {
 	}
 
 	// Make move. Already known to be legal!!
-	_, removed := hand_remove_tile(active_hand, move.tile)
-	assert(removed)
-	game.board[hex_to_index(move.hex)] = move.tile
+	hand_tile, removed := hand_remove_tile(active_hand, move.tile)
+	assert(removed) // but verify
+	game.board[hex_to_index(move.hex)] = hand_tile
 
 	// First, deal with the case where a Tile starts its own Section
 	if grp, ok := group_section_init(move, game); ok {
