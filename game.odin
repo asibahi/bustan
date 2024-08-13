@@ -117,6 +117,7 @@ game_make_move :: proc(game: ^Game, candidate: Maybe(Move)) -> bool {
 	hand_tile, removed := hand_remove_tile(active_hand, move.tile)
 	assert(removed) // but verify
 	game.board[hex_to_index(move.hex)] = hand_tile
+	move.tile = hand_tile // might be superfluous, but just to ascertain the Owner flags are set correctly
 
 	// First, deal with the case where a Tile starts its own Section
 	if grp, ok := group_section_init(move, game); ok {
