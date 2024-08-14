@@ -4,7 +4,7 @@ HAND_SIZE :: 63
 Hand :: distinct [HAND_SIZE]Tile
 
 hands_init :: proc() -> (guest: Hand, host: Hand) {
-	#unroll for i in 0 ..< u8(HAND_SIZE) {
+	for i in 0 ..< u8(HAND_SIZE) {
 		guest[i] = transmute(Tile)(i + 0b00_000_001)
 		host[i] = transmute(Tile)(i + 0b11_000_001)
 	}

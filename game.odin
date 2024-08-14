@@ -149,11 +149,10 @@ game_get_score :: proc(game: ^Game) -> (guest, host: int) {
 			guest += 1
 		}
 	}
-	for tile in game.guest_hand {
-		if !tile_is_empty(tile) do guest -= 1
+	for i in 0 ..< HAND_SIZE {
+		if !tile_is_empty(game.guest_hand[i]) do guest -= 1
+		if !tile_is_empty(game.host_hand[i]) do host -= 1
 	}
-	for tile in game.host_hand {
-		if !tile_is_empty(tile) do host -= 1
-	}
+
 	return
 }
