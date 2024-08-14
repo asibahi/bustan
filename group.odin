@@ -3,10 +3,10 @@ package main
 import "core:slice"
 
 Hex_State :: enum u8 {
-	Empty            = 0x00, // numbers chosen for a reason
-	Liberty          = 0x01,
-	Enemy_Connection = 0x11,
-	Member_Tile      = 0x13,
+	Empty            = 0o000, // numbers chosen for a reason
+	Liberty          = 0o001,
+	Enemy_Connection = 0o011,
+	Member_Tile      = 0o111,
 }
 
 Group :: struct {

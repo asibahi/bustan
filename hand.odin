@@ -1,12 +1,12 @@
 package main
 
-HAND_SIZE :: 63
+HAND_SIZE :: 63 // 0o77
 Hand :: distinct [HAND_SIZE]Tile
 
 hands_init :: proc() -> (guest: Hand, host: Hand) {
 	for i in 0 ..< u8(HAND_SIZE) {
-		guest[i] = transmute(Tile)(i + 0b00_000_001)
-		host[i] = transmute(Tile)(i + 0b11_000_001)
+		guest[i] = transmute(Tile)(i + 0o001)
+		host[i] = transmute(Tile)(i + 0o301)
 	}
 
 	return

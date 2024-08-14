@@ -35,7 +35,9 @@ Tile_Flag :: enum u8 {
 }
 Tile :: distinct bit_set[Tile_Flag;u8]
 
+// 00300
 HOST_FLAGS :: Tile{.Owner_Is_Host, .Controller_Is_Host}
+// 0o077
 CONNECTION_FLAGS :: ~HOST_FLAGS
 
 flag_dir :: proc(flag: Tile_Flag) -> (ret: Hex) {

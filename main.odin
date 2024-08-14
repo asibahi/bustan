@@ -3,14 +3,14 @@ package main
 import "core:fmt"
 
 Test_State :: enum u8 {
-	Empty = 0x00, // numbers chosen for a reason
-	Lbrty = 0x01,
-	Enemy = 0x11,
-	Mmber = 0x13,
+	Empty = 0o000, // numbers chosen for a reason
+	Lbrty = 0o001,
+	Enemy = 0o011,
+	Mmber = 0o111,
 }
 
 main :: proc() {
-	for flag in Test_State{
+	for flag in Test_State {
 		fmt.printf("\t%v", flag)
 
 	}
