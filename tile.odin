@@ -1,4 +1,4 @@
-package main
+package bustan
 
 // Hex Connection directions
 TOP_RIGHT :: Hex{1, -1}

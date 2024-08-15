@@ -1,4 +1,4 @@
-package main
+package bustan
 
 // Base Cell type
 Hex :: distinct [2]i8

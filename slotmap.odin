@@ -1,4 +1,4 @@
-package main
+package bustan
 
 foreign import slotmap "deps/slotmap/libslotmap.a"
 import "core:c"

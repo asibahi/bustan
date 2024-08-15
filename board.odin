@@ -1,4 +1,4 @@
-package main
+package bustan
 
 Board :: distinct [CELL_COUNT]Tile
 

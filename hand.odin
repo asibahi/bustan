@@ -1,4 +1,4 @@
-package main
+package bustan
 
 HAND_SIZE :: 63 // 0o77
 Hand :: distinct [HAND_SIZE]Tile
