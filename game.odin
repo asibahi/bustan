@@ -100,17 +100,12 @@ game_make_move :: proc(game: ^Game, candidate: Maybe(Move)) -> bool {
 	}
 
 	active_hand: ^Hand
-	friendly_grps, enemy_grps: Slot_Map
 
 	switch game.to_play {
 	case .Guest:
 		active_hand = &game.guest_hand
-		friendly_grps = game.guest_grps
-		enemy_grps = game.host_grps
 	case .Host:
 		active_hand = &game.host_hand
-		friendly_grps = game.host_grps
-		enemy_grps = game.guest_grps
 	}
 
 	// Make move. Already known to be legal!!
@@ -119,7 +114,7 @@ game_make_move :: proc(game: ^Game, candidate: Maybe(Move)) -> bool {
 	game.board[hex_to_index(move.hex)] = hand_tile
 	move.tile = hand_tile // might be superfluous, but just to ascertain the Owner flags are set correctly
 
-	game_make_move_inner(move, game)
+	game_update_state_inner(move, game)
 
 	return true
 }
@@ -152,7 +147,7 @@ game_get_score :: proc(game: ^Game) -> (guest, host: int) {
 
 // Should only be called if the move is known to be legal.
 @(private)
-game_make_move_inner :: proc(move: Move, game: ^Game) {
+game_update_state_inner :: proc(move: Move, game: ^Game) {
 	// Bug tracker
 	tile_liberties := card(move.tile & CONNECTION_FLAGS)
 	tile_liberties_countdown := tile_liberties
