@@ -243,8 +243,8 @@ game_update_state_inner :: proc(move: Move, game: ^Game) {
 
 	defer {
 		// == Update the groupmap
-		for _, idx in blessed_grp.state {
-			game.groups_map[idx] = blessed_key
+		for slot, idx in blessed_grp.state {
+			if slot == .Member_Tile do game.groups_map[idx] = blessed_key
 		}
 	}
 
