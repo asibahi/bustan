@@ -1,5 +1,6 @@
 package bustan
 
+import sa "core:container/small_array"
 import "core:slice"
 
 Player :: enum u8 {
@@ -114,7 +115,7 @@ game_make_move :: proc(game: ^Game, candidate: Maybe(Move)) -> bool {
 	game.board[hex_to_index(move.hex)] = hand_tile
 	move.tile = hand_tile // might be superfluous, but just to ascertain the Owner flags are set correctly
 
-	game_update_state_inner(move, game)
+	game_inner_update_state(move, game)
 
 	return true
 }
@@ -145,55 +146,124 @@ game_get_score :: proc(game: ^Game) -> (guest, host: int) {
 	return
 }
 
-// Should only be called if the move is known to be legal.
 @(private)
-game_update_state_inner :: proc(move: Move, game: ^Game) {
+game_inner_enumerate_neighbors :: proc(
+	move: Move,
+	game: ^Game,
+	tile_control: Tile,
+	nbr_friend_grps: ^sa.Small_Array(6, Sm_Key),
+	nbr_enemy_tiles, new_libs: ^sa.Small_Array(6, Hex),
+) {
 	// Bug tracker
 	tile_liberties := card(move.tile & CONNECTION_FLAGS)
 	tile_liberties_countdown := tile_liberties
-
-	// Friendliness tracker
-	tile_control := move.tile & {.Controller_Is_Host}
-
-	// Scratchpad: Found friendly Groups
-	nbr_friend_grps: [6]Sm_Key
-	nfg_counter: uint
-
-	// Scratchpad: Found Enemy Groups
-	nbr_enemy_tiles: [6]Hex
-	net_counter: uint
-
-	// Scratchpad: New Liberties
-	new_libs: [6]Hex
-	libs_counter: uint
 
 	for flag in move.tile & CONNECTION_FLAGS {
 		neighbor := move.hex + flag_dir(flag)
 		nbr_tile := board_get_tile(&game.board, neighbor) or_continue
 
 		if tile_is_empty(nbr_tile^) {
-			new_libs[libs_counter] = neighbor
-			libs_counter += 1
+			sa.push(new_libs, neighbor)
 		} else if nbr_tile^ & {.Controller_Is_Host} == tile_control {
 			// Same Controller
 			tile_liberties_countdown -= 1
 
 			// record Group of neighbor tile.
 			key := game.groups_map[hex_to_index(neighbor)]
-			if !slice.contains(nbr_friend_grps[:], key) {
-				nbr_friend_grps[nfg_counter] = key
-				nfg_counter += 1
+			if !slice.contains(nbr_friend_grps.data[:], key) {
+				ok := sa.push(nbr_friend_grps, key)
+				assert(ok)
 			}
 		} else {
 			// Different Controller
 			tile_liberties_countdown -= 1
 
-			nbr_enemy_tiles[net_counter] = neighbor
-			net_counter += 1
+			sa.push(nbr_enemy_tiles, neighbor)
 		}
 	}
-
 	assert(tile_liberties_countdown >= 0, "if this is broken there is a legality bug")
+	return
+}
+
+@(private)
+game_inner_init_group_or_merge_with_friendlies :: proc(
+	move: Move,
+	nbr_friend_grps: sa.Small_Array(6, Sm_Key),
+	nbr_enemy_tiles, new_libs: sa.Small_Array(6, Hex),
+	friendly_grps: Slot_Map,
+) -> (
+	blessed_grp: Sm_Item,
+	blessed_key: Sm_Key,
+) {
+	if sa.len(nbr_friend_grps) == 0 {
+		blessed_grp = new(Group)
+		blessed_key = slotmap_insert(friendly_grps, blessed_grp)
+
+		if sa.len(nbr_enemy_tiles) == 0 {
+			blessed_grp.extendable = true
+		}
+	} else {
+		blessed_key = sa.get(nbr_friend_grps, 0)
+		assert(
+			slotmap_contains_key(friendly_grps, blessed_key),
+			"Friendly slotmap does not have friendly blessed Key",
+		)
+		blessed_grp = slotmap_get(friendly_grps, blessed_key)
+
+		// == Merge other groups with blessed group
+		for i in 1 ..< nbr_friend_grps.len {
+			assert(
+				slotmap_contains_key(friendly_grps, sa.get(nbr_friend_grps, i)),
+				"Friendly slotmap does not have friendly Key",
+			)
+			temp_grp := slotmap_remove(friendly_grps, sa.get(nbr_friend_grps, i))
+			defer free(temp_grp)
+
+			blessed_grp.state |= temp_grp.state
+			blessed_grp.extendable &= temp_grp.extendable
+		}
+	}
+	blessed_grp.state[hex_to_index(move.hex)] |= .Member_Tile
+
+	// == Update liberties
+	for i in 0 ..< new_libs.len {
+		h := sa.get(new_libs, i)
+		idx := hex_to_index(h)
+		blessed_grp.state[idx] |= .Liberty
+	}
+	// == Update Enemy neighbors for blessed group
+	for i in 0 ..< nbr_enemy_tiles.len {
+		h := sa.get(nbr_enemy_tiles, i)
+		idx := hex_to_index(h)
+		blessed_grp.state[idx] |= .Enemy_Connection
+	}
+
+	return
+}
+
+// Should only be called if the move is known to be legal.
+@(private)
+game_inner_update_state :: proc(move: Move, game: ^Game) {
+	// Friendliness tracker
+	tile_control := move.tile & {.Controller_Is_Host}
+
+	// Scratchpad: Found friendly Groups
+	nbr_friend_grps: sa.Small_Array(6, Sm_Key)
+
+	// Scratchpad: Found Enemy Groups
+	nbr_enemy_tiles: sa.Small_Array(6, Hex)
+
+	// Scratchpad: New Liberties
+	new_libs: sa.Small_Array(6, Hex)
+
+	game_inner_enumerate_neighbors(
+		move,
+		game,
+		tile_control,
+		&nbr_friend_grps,
+		&nbr_enemy_tiles,
+		&new_libs,
+	)
 
 	// == Are we the Baddies?
 	friendly_grps: Slot_Map
@@ -208,53 +278,26 @@ game_update_state_inner :: proc(move: Move, game: ^Game) {
 		enemy_grps = game.guest_grps
 	}
 
-	// The placed Tile's Group
-	blessed_key: Sm_Key
-	blessed_grp: Sm_Item
-	if nfg_counter == 0 {
-		blessed_grp = new(Group)
-		blessed_key = slotmap_insert(friendly_grps, blessed_grp)
+	// The placed Tile's Group, init and add new liberties and enemy connections
+	blessed_grp, blessed_key := game_inner_init_group_or_merge_with_friendlies(
+		move,
+		nbr_friend_grps,
+		nbr_enemy_tiles,
+		new_libs,
+		friendly_grps,
+	)
 
-		if net_counter == 0 {
-			blessed_grp.extendable = true
-		}
-	} else {
-		blessed_key = nbr_friend_grps[0]
-		assert(
-			slotmap_contains_key(friendly_grps, blessed_key),
-			"Friendly slotmap does not have friendly Key",
-		)
-		blessed_grp = slotmap_get(friendly_grps, blessed_key)
-
-		// == Merge other groups with blessed group
-		for i in 1 ..< nfg_counter {
-			assert(
-				slotmap_contains_key(friendly_grps, nbr_friend_grps[i]),
-				"Friendly slotmap does not have friendly Key",
-			)
-			temp_grp := slotmap_remove(friendly_grps, nbr_friend_grps[i])
-			defer free(temp_grp)
-
-			blessed_grp.state |= temp_grp.state
-			blessed_grp.extendable &= temp_grp.extendable
-		}
-	}
-	blessed_grp.state[hex_to_index(move.hex)] |= .Member_Tile
-
+	// == Update the groupmap. deferred because other captures may happen
 	defer {
-		// == Update the groupmap
+		blessed_grp.extendable = true
 		for slot, idx in blessed_grp.state {
-			if slot == .Member_Tile do game.groups_map[idx] = blessed_key
+			#partial switch slot {
+			case .Member_Tile:
+				game.groups_map[idx] = blessed_key
+			case .Enemy_Connection:
+				blessed_grp.extendable = false
+			}
 		}
-	}
-
-	// == Update liberties
-	for i in 0 ..< libs_counter {
-		blessed_grp.state[hex_to_index(new_libs[i])] |= .Liberty
-	}
-	// == Update Enemy neighbors for blessed group
-	for i in 0 ..< net_counter {
-		blessed_grp.state[hex_to_index(nbr_enemy_tiles[i])] |= .Enemy_Connection
 	}
 
 	// == register surrounding Enemy Groups of blessed Group
@@ -276,6 +319,7 @@ game_update_state_inner :: proc(move: Move, game: ^Game) {
 			"newly formed groups must have liberites or enemy connections",
 		)
 		blessed_grp.extendable = true
+		
 		return
 	}
 
@@ -302,9 +346,9 @@ game_update_state_inner :: proc(move: Move, game: ^Game) {
 			case .Member_Tile:
 				tile_flip(&game.board[idx])
 			case .Enemy_Connection:
-				key := game.groups_map[idx]
-				if !slice.contains(level_2_surrounding_friendlies[:], key) {
-					append(&level_2_surrounding_friendlies, key)
+				fkey := game.groups_map[idx]
+				if !slice.contains(level_2_surrounding_friendlies[:], fkey) {
+					append(&level_2_surrounding_friendlies, fkey)
 				}
 			}
 		}

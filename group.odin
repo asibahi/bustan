@@ -1,7 +1,5 @@
 package bustan
 
-import "core:slice"
-
 Hex_State :: enum u8 {
 	Empty            = 0o000, // numbers chosen for a reason
 	Liberty          = 0o001,
