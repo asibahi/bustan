@@ -5,7 +5,7 @@ import "core:slice"
 
 Player :: enum u8 {
 	Guest, // White
-	Host, // Black
+	Host,  // Black
 }
 
 Move :: struct {
@@ -38,7 +38,7 @@ game_init :: proc() -> (ret: Game) {
 	// All other fields start with zero values except these two.
 	ret.guest_hand, ret.host_hand = hands_init()
 	ret.guest_grps = slotmap_init()
-	ret.host_grps = slotmap_init()
+	ret.host_grps  = slotmap_init()
 	return
 }
 
@@ -46,10 +46,10 @@ game_destroy :: proc(game: Game) {
 	// free all the remaining groups
 	for key in game.groups_map {
 		if slotmap_contains_key(game.guest_grps, key) {
-			grp := slotmap_get(game.guest_grps, key)
+			grp := slotmap_remove(game.guest_grps, key)
 			free(grp)
 		} else if slotmap_contains_key(game.host_grps, key) {
-			grp := slotmap_get(game.host_grps, key)
+			grp := slotmap_remove(game.host_grps, key)
 			free(grp)
 		}
 	}
@@ -74,15 +74,13 @@ game_make_move :: proc(game: ^Game, candidate: Maybe(Move)) -> bool {
 	// any move on an empty board is legal
 	// otherwise, game.legal_moves must contain the move
 	(!not_pass ||
-		slice.contains(game.legal_moves[:], move) ||
-		board_is_empty(&game.board)) or_return
+	 slice.contains(game.legal_moves[:], move) ||
+	 board_is_empty(&game.board)) or_return
 
 	defer if game.status == .Ongoing {
 		switch game.to_play {
-		case .Guest:
-			game.to_play = .Host
-		case .Host:
-			game.to_play = .Guest
+		case .Guest: game.to_play = .Host
+		case .Host:  game.to_play = .Guest
 		}
 		game.last_move = move
 		game_regen_legal_moves(game)
@@ -127,17 +125,17 @@ game_regen_legal_moves :: proc(game: ^Game) {
 	// == Are we the Baddies?
 	friendly_grps: Slot_Map
 	friendly_hand: ^Hand
-	enemy_grps: Slot_Map
+	enemy_grps:    Slot_Map
 
 	switch game.to_play {
 	case .Guest:
 		friendly_grps = game.guest_grps
 		friendly_hand = &game.guest_hand
-		enemy_grps = game.host_grps
+		enemy_grps    = game.host_grps
 	case .Host:
 		friendly_grps = game.host_grps
 		friendly_hand = &game.host_hand
-		enemy_grps = game.guest_grps
+		enemy_grps    = game.guest_grps
 	}
 
 	// get the hexes allowed to be played in
@@ -149,8 +147,8 @@ game_regen_legal_moves :: proc(game: ^Game) {
 
 		hex := hex_from_index(idx)
 		for flag in CONNECTION_FLAGS {
-			nbr := hex + flag_dir(flag)
-			nbr_idx := hex_to_index(nbr) or_continue
+			nbr_hex := hex + flag_dir(flag)
+			nbr_idx := hex_to_index(nbr_hex) or_continue
 
 			nbr_key := game.groups_map[nbr_idx]
 			if nbr_key == 0 do continue
@@ -170,7 +168,32 @@ game_regen_legal_moves :: proc(game: ^Game) {
 		}
 	}
 
-	// todo: fill Tiles to go with found hexes.
+	// fill Tiles to go with found hexes.
+	candidate_moves := make([dynamic]Move)
+	defer delete(candidate_moves)
+
+	for hex in playable_hexes {
+		idx := hex_to_index(hex)
+		for tile in friendly_hand {
+			if tile_is_empty(tile) do continue
+
+			score := 0 // if score is 6, tile is playable.
+			defer if score == 6 do append(&candidate_moves, Move{hex, tile})
+
+			for flag in CONNECTION_FLAGS {
+				nbr_hex  := hex + flag_dir(flag)
+				nbr_idx, in_bounds := hex_to_index(nbr_hex)
+				nbr_tile := game.board[nbr_idx] // this is fine as `nbr_idx` is 0 when hex is out of bounds.
+
+				cond := (!in_bounds && flag not_in tile) ||
+					(in_bounds  && (tile_is_empty(nbr_tile) ||
+					       		(flag in     tile && flag_opposite(flag) in     nbr_tile) ||
+							(flag not_in tile && flag_opposite(flag) not_in nbr_tile))) 
+				
+				score += 1 if cond else 0
+			}
+		}
+	}
 
 	// todo: deal with Oscillation
 }
@@ -181,14 +204,14 @@ game_get_score :: proc(game: ^Game) -> (guest, host: int) {
 	for tile in game.board {
 		if tile_is_empty(tile) do continue
 		if .Controller_Is_Host in tile {
-			host += 1
+			host  += 1
 		} else {
 			guest += 1
 		}
 	}
 	for i in 0 ..< HAND_SIZE {
 		if !tile_is_empty(game.guest_hand[i]) do guest -= 1
-		if !tile_is_empty(game.host_hand[i]) do host -= 1
+		if !tile_is_empty(game.host_hand[i])  do host  -= 1
 	}
 
 	return
@@ -196,10 +219,10 @@ game_get_score :: proc(game: ^Game) -> (guest, host: int) {
 
 @(private)
 game_inner_enumerate_neighbors :: proc(
-	move: Move,
-	game: ^Game,
-	tile_control: Tile,
-	nbr_friend_grps: ^sa.Small_Array(6, Sm_Key),
+	move:			   Move,
+	game:			   ^Game,
+	tile_control:		   Tile,
+	nbr_friend_grps:	   ^sa.Small_Array(6, Sm_Key),
 	nbr_enemy_tiles, new_libs: ^sa.Small_Array(6, Hex),
 ) {
 	// Bug tracker
@@ -235,10 +258,10 @@ game_inner_enumerate_neighbors :: proc(
 
 @(private)
 game_inner_init_group_or_merge_with_friendlies :: proc(
-	move: Move,
-	nbr_friend_grps: sa.Small_Array(6, Sm_Key),
+	move:		 	   Move,
+	nbr_friend_grps:	   sa.Small_Array(6, Sm_Key),
 	nbr_enemy_tiles, new_libs: sa.Small_Array(6, Hex),
-	friendly_grps: Slot_Map,
+	friendly_grps:		   Slot_Map,
 ) -> (
 	blessed_grp: Sm_Item,
 	blessed_key: Sm_Key,
@@ -267,7 +290,7 @@ game_inner_init_group_or_merge_with_friendlies :: proc(
 			temp_grp := slotmap_remove(friendly_grps, sa.get(nbr_friend_grps, i))
 			defer free(temp_grp)
 
-			blessed_grp.state |= temp_grp.state
+			blessed_grp.state      |= temp_grp.state
 			blessed_grp.extendable &= temp_grp.extendable
 		}
 	}
@@ -275,13 +298,13 @@ game_inner_init_group_or_merge_with_friendlies :: proc(
 
 	// == Update liberties
 	for i in 0 ..< new_libs.len {
-		h := sa.get(new_libs, i)
+		h   := sa.get(new_libs, i)
 		idx := hex_to_index(h)
 		blessed_grp.state[idx] |= .Liberty
 	}
 	// == Update Enemy neighbors for blessed group
 	for i in 0 ..< nbr_enemy_tiles.len {
-		h := sa.get(nbr_enemy_tiles, i)
+		h   := sa.get(nbr_enemy_tiles, i)
 		idx := hex_to_index(h)
 		blessed_grp.state[idx] |= .Enemy_Connection
 	}
@@ -296,10 +319,8 @@ game_inner_update_state :: proc(move: Move, game: ^Game) {
 	// Friendliness tracker
 	tile_control := move.tile & {.Controller_Is_Host}
 	assert(
-		(game.to_play == .Guest && move.tile & {.Owner_Is_Host, .Controller_Is_Host} == {}) ||
-		(game.to_play == .Host &&
-				move.tile & {.Owner_Is_Host, .Controller_Is_Host} ==
-					{.Owner_Is_Host, .Controller_Is_Host}),
+		(game.to_play == .Guest && move.tile & HOST_FLAGS == {}) ||
+		(game.to_play == .Host  && move.tile & HOST_FLAGS == HOST_FLAGS),
 	)
 
 	// Scratchpad: Found friendly Groups
@@ -326,11 +347,11 @@ game_inner_update_state :: proc(move: Move, game: ^Game) {
 	if tile_control == {} {
 		// Guest Controller
 		friendly_grps = game.guest_grps
-		enemy_grps = game.host_grps
+		enemy_grps    = game.host_grps
 	} else {
 		// Host Controller
 		friendly_grps = game.host_grps
-		enemy_grps = game.guest_grps
+		enemy_grps    = game.guest_grps
 	}
 
 	// The placed Tile's Group, init and add new liberties and enemy connections
@@ -409,7 +430,7 @@ game_inner_update_state :: proc(move: Move, game: ^Game) {
 		}
 
 		// CAPTURE
-		blessed_grp.state |= cursed_grp.state
+		blessed_grp.state      |= cursed_grp.state
 		blessed_grp.extendable &= cursed_grp.extendable
 	}
 

@@ -58,6 +58,24 @@ flag_dir :: proc(flag: Tile_Flag) -> (ret: Hex) {
 	return
 }
 
+flag_opposite :: proc(flag: Tile_Flag) -> (ret: Tile_Flag) {
+	#partial switch flag {
+	case .Top_Right:
+		ret = .Btm_Left
+	case .Right:
+		ret = .Left
+	case .Btm_Right:
+		ret = .Top_Left
+	case .Btm_Left:
+		ret = .Top_Right
+	case .Left:
+		ret = .Right
+	case .Top_Left:
+		ret = .Btm_Right
+	}
+	return
+}
+
 tile_flip :: proc(t: ^Tile) {
 	t^ ~= {.Controller_Is_Host}
 }
