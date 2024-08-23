@@ -1,12 +1,12 @@
 package bustan
 
 // Hex Connection directions
-TOP_RIGHT :: Hex{1, -1}
-RIGHT :: Hex{1, 0}
-BTM_RIGHT :: Hex{0, 1}
-BTM_LEFT :: Hex{-1, 1}
-LEFT :: Hex{-1, 0}
-TOP_LEFT :: Hex{0, -1}
+TOP_RIGHT :: Hex{ 1, -1}
+RIGHT     :: Hex{ 1,  0}
+BTM_RIGHT :: Hex{ 0,  1}
+BTM_LEFT  :: Hex{-1,  1}
+LEFT      :: Hex{-1,  0}
+TOP_LEFT  :: Hex{ 0, -1}
 
 // Bustan Tiles
 //
@@ -42,36 +42,24 @@ CONNECTION_FLAGS :: ~HOST_FLAGS
 
 flag_dir :: proc(flag: Tile_Flag) -> (ret: Hex) {
 	#partial switch flag {
-	case .Top_Right:
-		ret = TOP_RIGHT
-	case .Right:
-		ret = RIGHT
-	case .Btm_Right:
-		ret = BTM_RIGHT
-	case .Btm_Left:
-		ret = BTM_LEFT
-	case .Left:
-		ret = LEFT
-	case .Top_Left:
-		ret = TOP_LEFT
+	case .Top_Right: ret = TOP_RIGHT
+	case .Right:     ret = RIGHT
+	case .Btm_Right: ret = BTM_RIGHT
+	case .Btm_Left:  ret = BTM_LEFT
+	case .Left:      ret = LEFT
+	case .Top_Left:  ret = TOP_LEFT
 	}
 	return
 }
 
 flag_opposite :: proc(flag: Tile_Flag) -> (ret: Tile_Flag) {
 	#partial switch flag {
-	case .Top_Right:
-		ret = .Btm_Left
-	case .Right:
-		ret = .Left
-	case .Btm_Right:
-		ret = .Top_Left
-	case .Btm_Left:
-		ret = .Top_Right
-	case .Left:
-		ret = .Right
-	case .Top_Left:
-		ret = .Btm_Right
+	case .Top_Right: ret = .Btm_Left
+	case .Right:     ret = .Left
+	case .Btm_Right: ret = .Top_Left
+	case .Btm_Left:  ret = .Top_Right
+	case .Left:      ret = .Right
+	case .Top_Left:  ret = .Btm_Right
 	}
 	return
 }
@@ -85,13 +73,12 @@ tile_is_empty :: proc(t: Tile) -> bool {
 }
 
 tile_from_id :: proc(id: u8, player: Player) -> (ret: Tile) {
-	assert(0 < id, "Blank Tile is not playable")
+	assert(0  <  id, 	"Blank Tile is not playable")
 	assert(id <= HAND_SIZE, "Tile is impossible")
 
 	ret = transmute(Tile)id
 	switch player {
-	case .Host:
-		ret |= HOST_FLAGS
+	case .Host: ret |= HOST_FLAGS
 	case .Guest:
 	}
 

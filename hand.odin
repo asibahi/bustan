@@ -6,7 +6,7 @@ Hand :: distinct [HAND_SIZE]Tile
 hands_init :: proc() -> (guest: Hand, host: Hand) {
 	for i in 0 ..< u8(HAND_SIZE) {
 		guest[i] = transmute(Tile)(i + 0o001)
-		host[i] = transmute(Tile)(i + 0o301)
+		host[i]  = transmute(Tile)(i + 0o301)
 	}
 
 	return

@@ -25,12 +25,12 @@ Game :: struct {
 	to_play:               Player,
 	status:                Status,
 	last_move:             Maybe(Move),
-	//
+	
 	guest_hand, host_hand: Hand,
-	//
+	
 	groups_map:            [CELL_COUNT]Sm_Key,
 	guest_grps, host_grps: Slot_Map,
-	// 
+	 
 	legal_moves:           [dynamic]Move,
 }
 
@@ -101,10 +101,8 @@ game_make_move :: proc(game: ^Game, candidate: Maybe(Move)) -> bool {
 	active_hand: ^Hand
 
 	switch game.to_play {
-	case .Guest:
-		active_hand = &game.guest_hand
-	case .Host:
-		active_hand = &game.host_hand
+	case .Guest: active_hand = &game.guest_hand
+	case .Host:  active_hand = &game.host_hand
 	}
 
 	// Make move. Already known to be legal!!
