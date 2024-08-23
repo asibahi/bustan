@@ -124,7 +124,55 @@ game_make_move :: proc(game: ^Game, candidate: Maybe(Move)) -> bool {
 game_regen_legal_moves :: proc(game: ^Game) {
 	clear(&game.legal_moves)
 
-	// todo: build them again
+	// == Are we the Baddies?
+	friendly_grps: Slot_Map
+	friendly_hand: ^Hand
+	enemy_grps: Slot_Map
+
+	switch game.to_play {
+	case .Guest:
+		friendly_grps = game.guest_grps
+		friendly_hand = &game.guest_hand
+		enemy_grps = game.host_grps
+	case .Host:
+		friendly_grps = game.host_grps
+		friendly_hand = &game.host_hand
+		enemy_grps = game.guest_grps
+	}
+
+	// get the hexes allowed to be played in
+	playable_hexes := make([dynamic]Hex)
+	defer delete(playable_hexes)
+
+	outer: for key, idx in game.groups_map {
+		(key == 0) or_continue // Hex must be empty.
+
+		hex := hex_from_index(idx)
+		for flag in CONNECTION_FLAGS {
+			nbr := hex + flag_dir(flag)
+			nbr_idx := hex_to_index(nbr) or_continue
+
+			nbr_key := game.groups_map[nbr_idx]
+			if nbr_key == 0 do continue
+
+			if slotmap_contains_key(enemy_grps, nbr_key) {
+				append(&playable_hexes, hex)
+				continue outer
+			} else if slotmap_contains_key(friendly_grps, nbr_key) {
+				grp := slotmap_get(friendly_grps, nbr_key)
+				if grp.extendable && grp.state[idx] == .Liberty {
+					append(&playable_hexes, hex)
+					continue outer
+				}
+			} else {
+				panic("key is not 0, is not in friendly groups, not in enemy groups, ??")
+			}
+		}
+	}
+
+	// todo: fill Tiles to go with found hexes.
+
+	// todo: deal with Oscillation
 }
 
 // A player's territory consists of the number of their pieces on the board minus the number of pieces they didn't place.
@@ -244,8 +292,15 @@ game_inner_init_group_or_merge_with_friendlies :: proc(
 // Should only be called if the move is known to be legal.
 @(private)
 game_inner_update_state :: proc(move: Move, game: ^Game) {
+
 	// Friendliness tracker
 	tile_control := move.tile & {.Controller_Is_Host}
+	assert(
+		(game.to_play == .Guest && move.tile & {.Owner_Is_Host, .Controller_Is_Host} == {}) ||
+		(game.to_play == .Host &&
+				move.tile & {.Owner_Is_Host, .Controller_Is_Host} ==
+					{.Owner_Is_Host, .Controller_Is_Host}),
+	)
 
 	// Scratchpad: Found friendly Groups
 	nbr_friend_grps: sa.Small_Array(6, Sm_Key)
@@ -319,7 +374,7 @@ game_inner_update_state :: proc(move: Move, game: ^Game) {
 			"newly formed groups must have liberites or enemy connections",
 		)
 		blessed_grp.extendable = true
-		
+
 		return
 	}
 
