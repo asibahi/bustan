@@ -9,7 +9,7 @@ BOARD_SIZE: i8 : 9
 N :: BOARD_SIZE - 1
 
 // Center is (0, 0). If we switch to a rectangular erray it would be (N, N)
-CENTER :: Hex{N, N}
+CENTER :: Hex{0, 0}
 
 // Formula ripped off Red Blob article.
 CELL_COUNT :: 1 + 3 * int(N) * (int(N) + 1)
@@ -22,6 +22,7 @@ hex_distance :: proc(h1, h2: Hex) -> i8 {
 hex_to_index :: proc(hex: Hex) -> (idx: int, ok: bool) #optional_ok {
 	if hex_distance(hex, CENTER) > N do return 0, false
 
+	hex := hex + {N, N} // offset for 0,0 center
 	q, r := hex.x, hex.y
 
 	switch r { 	// Hardcoded values for N == 8
@@ -89,7 +90,7 @@ hex_from_index :: proc(idx: int) -> (ret: Hex, ok: bool) #optional_ok {
 	case 100 ..< 117:
 		r, r_len = 8, 100
 	case 117 ..< 133:
-		r, r_len = 9, 127
+		r, r_len = 9, 117
 	case 133 ..< 148:
 		r, r_len = 10, 133
 	case 148 ..< 162:
@@ -113,11 +114,14 @@ hex_from_index :: proc(idx: int) -> (ret: Hex, ok: bool) #optional_ok {
 	// this *should* be correct
 
 	q := i8(idx - r_len + int(max(0, N - r)))
-	return {q, r}, true
+	ret = {q, r} - {N, N} // offset for {0, 0} center
+
+	return ret, true
 }
 
 // tests 
 
+import "core:fmt"
 import "core:testing"
 
 @(test)
@@ -132,8 +136,7 @@ test_hex_to_index_and_back :: proc(t: ^testing.T) {
 	testing.expect(t, out == input)
 
 	// ===
-
-	input = CENTER + TOP_RIGHT
+	input = CENTER + BTM_LEFT
 	idx, _ = hex_to_index(input)
 	out, _ = hex_from_index(idx)
 
