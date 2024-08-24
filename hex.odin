@@ -25,7 +25,7 @@ hex_to_index :: proc(hex: Hex) -> (idx: int, ok: bool) #optional_ok {
 	hex  := hex + {N, N} // offset for 0, 0 center
 	q, r := hex.x, hex.y
 
-	switch r { 	// Hardcoded values for N == 8
+	switch r { // Hardcoded values for N == 8
 	case  0:	
 	case  1: idx =   9
 	case  2: idx =  19
@@ -55,24 +55,24 @@ hex_from_index :: proc(idx: int) -> (ret: Hex, ok: bool) #optional_ok {
 	r:     i8
 	r_len: int
 
-	switch idx { 	// Hardcoded values for N == 8	
-	case   0 ..<   9:
-	case   9 ..<  19: r =  1; r_len =   9
-	case  19 ..<  30: r =  2; r_len =  19
-	case  30 ..<  42: r =  3; r_len =  30
-	case  42 ..<  55: r =  4; r_len =  42
-	case  55 ..<  69: r =  5; r_len =  55
-	case  69 ..<  84: r =  6; r_len =  69
-	case  84 ..< 100: r =  7; r_len =  84
-	case 100 ..< 117: r =  8; r_len = 100
-	case 117 ..< 133: r =  9; r_len = 117
-	case 133 ..< 148: r = 10; r_len = 133
-	case 148 ..< 162: r = 11; r_len = 148
-	case 162 ..< 175: r = 12; r_len = 162
-	case 175 ..< 187: r = 13; r_len = 175
-	case 187 ..< 198: r = 14; r_len = 187
-	case 198 ..< 208: r = 15; r_len = 198
-	case:		  r = 16; r_len = 208
+	switch { // Hardcoded values for N == 8
+	case idx >= 208: r = 16; r_len = 208
+	case idx >= 198: r = 15; r_len = 198
+	case idx >= 187: r = 14; r_len = 187
+	case idx >= 175: r = 13; r_len = 175
+	case idx >= 162: r = 12; r_len = 162
+	case idx >= 148: r = 11; r_len = 148
+	case idx >= 133: r = 10; r_len = 133
+	case idx >= 117: r =  9; r_len = 117
+	case idx >= 100: r =  8; r_len = 100
+	case idx >=  84: r =  7; r_len =  84
+	case idx >=  69: r =  6; r_len =  69
+	case idx >=  55: r =  5; r_len =  55
+	case idx >=  42: r =  4; r_len =  42
+	case idx >=  30: r =  3; r_len =  30
+	case idx >=  19: r =  2; r_len =  19
+	case idx >=   9: r =  1; r_len =   9
+	case:
 	}
 
 	// q_offset = q - max(0, N-r)
@@ -89,7 +89,6 @@ hex_from_index :: proc(idx: int) -> (ret: Hex, ok: bool) #optional_ok {
 
 // tests 
 
-import "core:fmt"
 import "core:testing"
 
 @(test)
