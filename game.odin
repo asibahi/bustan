@@ -166,34 +166,47 @@ game_regen_legal_moves :: proc(game: ^Game) {
 		}
 	}
 
-	// fill Tiles to go with found hexes.
-	candidate_moves := make([dynamic]Move)
-	defer delete(candidate_moves)
-
 	for hex in playable_hexes {
 		idx := hex_to_index(hex)
 		for tile in friendly_hand {
 			if tile_is_empty(tile) do continue
 
-			score := 0 // if score is 6, tile is playable.
-			defer if score == 6 do append(&candidate_moves, Move{hex, tile})
+			score   := 0 // if score is 6, tile is playable.
+			osc_pen := 0 // unless this is the same as Tile cardinality
+			defer if score == 6 && osc_pen != card(tile & CONNECTION_FLAGS) { 
+				append(&game.legal_moves, Move{hex, tile}) 
+			}
 
 			for flag in CONNECTION_FLAGS {
 				nbr_hex  := hex + flag_dir(flag)
 				nbr_idx, in_bounds := hex_to_index(nbr_hex)
 				nbr_tile := game.board[nbr_idx] // this is fine as `nbr_idx` is 0 when hex is out of bounds.
-
+				
 				cond := (!in_bounds && flag not_in tile) ||
-					(in_bounds  && (tile_is_empty(nbr_tile) ||
+					 (in_bounds && (tile_is_empty(nbr_tile) ||
 					       		(flag in     tile && flag_opposite(flag) in     nbr_tile) ||
 							(flag not_in tile && flag_opposite(flag) not_in nbr_tile))) 
 				
 				score += 1 if cond else 0
+				// Only check for Oscillation if it takes away a Liberty.
+				(in_bounds && flag_opposite(flag) in nbr_tile) or_continue
+
+				nbr_key  := game.groups_map[nbr_idx]
+
+				if slotmap_contains_key(enemy_grps, nbr_key) {
+					nbr_grp := slotmap_get(enemy_grps, nbr_key)
+					if group_life(nbr_grp) == 1 && nbr_grp.extendable {
+						osc_pen += 1
+					}
+				} else if slotmap_contains_key(friendly_grps, nbr_key) {
+					nbr_grp := slotmap_get(friendly_grps, nbr_key)
+					if group_life(nbr_grp) == 1 && nbr_grp.extendable {
+						osc_pen += 1
+					}
+				}
 			}
 		}
 	}
-
-	// todo: deal with Oscillation
 }
 
 // A player's territory consists of the number of their pieces on the board minus the number of pieces they didn't place.
