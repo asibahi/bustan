@@ -3,21 +3,16 @@ package bustan
 import "core:fmt"
 
 main :: proc() {
-	input, out: Hex
-	idx: int
-	okto, okfrom: bool
+	game := game_init()
+	defer game_destroy(game)
 
-	input = CENTER
-	idx, okto = hex_to_index(input)
-	out, okfrom = hex_from_index(idx)
+	ok: bool
 
-	fmt.printfln("CENTER: %v, %v, %v, %v, %v", input, idx, okto, out, okfrom)
+	ok = game_make_move(&game, Move{hex = {0, 0}, tile = tile_from_id(63, .Guest)})
+	fmt.printfln("%v", ok)
 
-	// ===
-	input = Hex{N,N}
-	idx, okto = hex_to_index(input)
-	out, okfrom = hex_from_index(idx)
+	ok = game_make_move(&game, Move{hex = {N, 0}, tile = tile_from_id(63, .Host)})
+	fmt.printfln("%v", ok)
 
-	fmt.printfln("TPRGHT: %v, %v, %v, %v, %v", input, idx, okto, out, okfrom)
-
+	// fmt.printfln("%v", game.board) 
 }
