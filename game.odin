@@ -25,39 +25,25 @@ Game :: struct {
 	to_play:               Player,
 	status:                Status,
 	last_move:             Maybe(Move),
-	
+
 	guest_hand, host_hand: Hand,
-	
-	groups_map:            [CELL_COUNT]Sm_Key,
-	guest_grps, host_grps: Slot_Map,
-	 
+
+	groups_map:            [CELL_COUNT]Group_Handle,
+	guest_grps, host_grps: Group_Store,
+
 	legal_moves:           [dynamic]Move,
 }
 
 game_init :: proc() -> (ret: Game) {
-	// All other fields start with zero values except these two.
+	// All other fields start with zero values except these
+	ret.guest_grps.player = .Guest
+	ret.host_grps.player  = .Host
+
 	ret.guest_hand, ret.host_hand = hands_init()
-	ret.guest_grps = slotmap_init()
-	ret.host_grps  = slotmap_init()
 	return
 }
 
 game_destroy :: proc(game: Game) {
-	// free all the remaining groups
-	for key in game.groups_map {
-		if slotmap_contains_key(game.guest_grps, key) {
-			grp := slotmap_remove(game.guest_grps, key)
-			free(grp)
-		} else if slotmap_contains_key(game.host_grps, key) {
-			grp := slotmap_remove(game.host_grps, key)
-			free(grp)
-		}
-	}
-
-	// free the slotmaps
-	slotmap_destroy(game.guest_grps)
-	slotmap_destroy(game.host_grps)
-
 	// delete the dynamic map
 	delete(game.legal_moves)
 
@@ -128,7 +114,7 @@ game_inner_update_state :: proc(move: Move, game: ^Game) {
 	)
 
 	// Scratchpad: Found friendly Groups
-	nbr_friend_grps: sa.Small_Array(6, Sm_Key)
+	nbr_friend_grps: sa.Small_Array(6, Group_Handle)
 
 	// Scratchpad: Found Enemy Groups
 	nbr_enemy_tiles: sa.Small_Array(6, Hex)
@@ -166,44 +152,37 @@ game_inner_update_state :: proc(move: Move, game: ^Game) {
 	assert(tile_liberties_countdown >= 0, "if this is broken there is a legality bug")
 
 	// == Are we the Baddies?
-	friendly_grps: Slot_Map
-	enemy_grps: Slot_Map
+	friendly_grps, enemy_grps: ^Group_Store
 	if tile_control == {} {
 		// Guest Controller
-		friendly_grps = game.guest_grps
-		enemy_grps    = game.host_grps
+		friendly_grps = &game.guest_grps
+		enemy_grps    = &game.host_grps
 	} else {
 		// Host Controller
-		friendly_grps = game.host_grps
-		enemy_grps    = game.guest_grps
+		friendly_grps = &game.host_grps
+		enemy_grps    = &game.guest_grps
 	}
 
 	// The placed Tile's Group, init and add new liberties and enemy connections
-	blessed_grp: Sm_Item
-	blessed_key: Sm_Key
+	blessed_grp: ^Group
+	blessed_key: Group_Handle
 	if sa.len(nbr_friend_grps) == 0 {
-		blessed_grp = new(Group)
-		blessed_key = slotmap_insert(friendly_grps, blessed_grp)
+		blessed_key = store_insert(friendly_grps, Group{ alive = true })
+		blessed_grp, _ = store_get(friendly_grps, blessed_key)
 
 		if sa.len(nbr_enemy_tiles) == 0 {
 			blessed_grp.extendable = true
 		}
 	} else {
+		ok: bool
 		blessed_key = sa.get(nbr_friend_grps, 0)
-		assert(
-			slotmap_contains_key(friendly_grps, blessed_key),
-			"Friendly slotmap does not have friendly blessed Key",
-		)
-		blessed_grp = slotmap_get(friendly_grps, blessed_key)
+		blessed_grp, ok = store_get(friendly_grps, blessed_key)
+		assert(ok, "Friendly slotmap does not have friendly blessed Key")
 
 		// == Merge other groups with blessed group
 		for i in 1 ..< nbr_friend_grps.len {
-			assert(
-				slotmap_contains_key(friendly_grps, sa.get(nbr_friend_grps, i)),
-				"Friendly slotmap does not have friendly Key",
-			)
-			temp_grp := slotmap_remove(friendly_grps, sa.get(nbr_friend_grps, i))
-			defer free(temp_grp)
+			temp_grp, ok := store_remove(friendly_grps, sa.get(nbr_friend_grps, i))
+			assert(ok, "Friendly slotmap does not have friendly Key")
 
 			blessed_grp.state      |= temp_grp.state
 			blessed_grp.extendable &= temp_grp.extendable
@@ -238,7 +217,7 @@ game_inner_update_state :: proc(move: Move, game: ^Game) {
 	}
 
 	// == register surrounding Enemy Groups of blessed Group
-	surrounding_enemy_grps := make([dynamic]Sm_Key)
+	surrounding_enemy_grps := make([dynamic]Group_Handle)
 	defer delete(surrounding_enemy_grps)
 
 	for slot, idx in blessed_grp.state {
@@ -261,22 +240,21 @@ game_inner_update_state :: proc(move: Move, game: ^Game) {
 	}
 
 	// == these are the friendly groups that surround the dead enemy groups.
-	level_2_surrounding_friendlies := make([dynamic]Sm_Key)
+	level_2_surrounding_friendlies := make([dynamic]Group_Handle)
 	defer delete(level_2_surrounding_friendlies)
 
 	// == go over surrounding enemy groups to see if they're dead.
 	capture_occurance := false
 	for key in surrounding_enemy_grps {
-		assert(slotmap_contains_key(enemy_grps, key), "Enemy slotmap does not have enemy Key")
-		temp_grp := slotmap_get(enemy_grps, key)
+		temp_grp, ok := store_get(enemy_grps, key)
+		assert(ok, "Enemy slotmap does not have enemy Key")
 		temp_grp.state[hex_to_index(move.hex)] |= .Enemy_Connection // this is probably correct
 
 		// Enemy Group is dead
 		(group_life(temp_grp) == 0) or_continue
 		capture_occurance = true
 
-		cursed_grp := slotmap_remove(enemy_grps, key)
-		defer free(cursed_grp)
+		cursed_grp, _ := store_remove(enemy_grps, key)
 
 		for slot, idx in cursed_grp.state {
 			#partial switch slot {
@@ -297,9 +275,8 @@ game_inner_update_state :: proc(move: Move, game: ^Game) {
 
 	// == merge level 2 surrounding friendlies into blessed group
 	for key in level_2_surrounding_friendlies {
-		assert(slotmap_contains_key(friendly_grps, key))
-		temp_grp := slotmap_remove(friendly_grps, key)
-		defer free(temp_grp)
+		temp_grp, ok := store_remove(friendly_grps, key)
+		assert(ok, "I have no idea what this is asserting, right now")
 
 		blessed_grp.state |= temp_grp.state
 		blessed_grp.extendable &= temp_grp.extendable
@@ -313,10 +290,9 @@ game_inner_update_state :: proc(move: Move, game: ^Game) {
 
 	// == Now the blessed group has converted.
 
-	cursed_grp := slotmap_remove(friendly_grps, blessed_key)
-	defer free(cursed_grp)
+	cursed_grp, _ := store_remove(friendly_grps, blessed_key)
 
-	new_family := make([dynamic]Sm_Key)
+	new_family := make([dynamic]Group_Handle)
 	defer delete(new_family)
 
 	for loc, idx in blessed_grp.state {
@@ -333,16 +309,16 @@ game_inner_update_state :: proc(move: Move, game: ^Game) {
 
 	assert(len(new_family) > 0, "Oscillation")
 
+	ok: bool
 	blessed_key = new_family[0]
-	assert(slotmap_contains_key(enemy_grps, blessed_key), "Enemy key is not in enemy map")
+	blessed_grp, ok = store_get(enemy_grps, blessed_key)
+	assert(ok, "Enemy key is not in enemy map")
 
-	blessed_grp = slotmap_get(enemy_grps, blessed_key)
 	blessed_grp.state |= cursed_grp.state
 
 	for i in 1 ..< len(new_family) {
-		assert(slotmap_contains_key(enemy_grps, new_family[i]))
-		temp_grp := slotmap_remove(enemy_grps, new_family[i])
-		defer free(temp_grp)
+		temp_grp, ok := store_remove(enemy_grps, new_family[i])
+		assert(ok, "This is the second assertion I am not sure what is")
 
 		blessed_grp.state |= temp_grp.state
 	}
@@ -365,19 +341,19 @@ game_regen_legal_moves :: proc(game: ^Game) {
 	clear(&game.legal_moves)
 
 	// == Are we the Baddies?
-	friendly_grps: Slot_Map
+	friendly_grps: ^Group_Store
 	friendly_hand: ^Hand
-	enemy_grps:    Slot_Map
+	enemy_grps:    ^Group_Store
 
 	switch game.to_play {
 	case .Guest:
-		friendly_grps = game.guest_grps
+		friendly_grps = &game.guest_grps
 		friendly_hand = &game.guest_hand
-		enemy_grps    = game.host_grps
+		enemy_grps    = &game.host_grps
 	case .Host:
-		friendly_grps = game.host_grps
+		friendly_grps = &game.host_grps
 		friendly_hand = &game.host_hand
-		enemy_grps    = game.guest_grps
+		enemy_grps    = &game.guest_grps
 	}
 
 	// get the hexes allowed to be played in
@@ -385,7 +361,7 @@ game_regen_legal_moves :: proc(game: ^Game) {
 	defer delete(playable_hexes)
 
 	outer: for key, idx in game.groups_map {
-		(key == 0) or_continue // Hex must be empty.
+		if key.valid do continue // Hex must be empty.
 
 		hex := hex_from_index(idx)
 		for flag in CONNECTION_FLAGS {
@@ -393,13 +369,12 @@ game_regen_legal_moves :: proc(game: ^Game) {
 			nbr_idx := hex_to_index(nbr_hex) or_continue
 
 			nbr_key := game.groups_map[nbr_idx]
-			if nbr_key == 0 do continue
+			nbr_key.valid or_continue
 
-			if slotmap_contains_key(enemy_grps, nbr_key) {
+			if _, ok := store_get(enemy_grps, nbr_key); ok {
 				append(&playable_hexes, hex)
 				continue outer
-			} else if slotmap_contains_key(friendly_grps, nbr_key) {
-				grp := slotmap_get(friendly_grps, nbr_key)
+			} else if grp, ok := store_get(friendly_grps, nbr_key); ok {
 				if grp.extendable && grp.state[idx] == .Liberty {
 					append(&playable_hexes, hex)
 					continue outer
@@ -425,24 +400,23 @@ game_regen_legal_moves :: proc(game: ^Game) {
 				nbr_idx, in_bounds := hex_to_index(nbr_hex)
 				nbr_tile := game.board[nbr_idx] // this is fine as `nbr_idx` is 0 when hex is out of bounds.
 				
-				cond := (!in_bounds && flag not_in tile) ||
-					 (in_bounds && (tile_is_empty(nbr_tile) ||
-					       		(flag in     tile && flag_opposite(flag) in     nbr_tile) ||
-							(flag not_in tile && flag_opposite(flag) not_in nbr_tile))) 
-				
-				score += 1 if cond else 0
+				((!in_bounds && flag not_in tile) ||
+				(in_bounds && (tile_is_empty(nbr_tile) ||
+				       	       (flag in     tile && flag_opposite(flag) in     nbr_tile) ||
+					       (flag not_in tile && flag_opposite(flag) not_in nbr_tile)))) or_break
+
+				score += 1
+
 				// Only check for Oscillation if it takes away a Liberty.
 				(in_bounds && flag_opposite(flag) in nbr_tile) or_continue
 
-				nbr_key  := game.groups_map[nbr_idx]
+				nbr_key := game.groups_map[nbr_idx]
 
-				if slotmap_contains_key(enemy_grps, nbr_key) {
-					nbr_grp := slotmap_get(enemy_grps, nbr_key)
+				if nbr_grp, ok := store_get(enemy_grps, nbr_key); ok {
 					if group_life(nbr_grp) == 1 && nbr_grp.extendable {
 						osc_pen += 1
 					}
-				} else if slotmap_contains_key(friendly_grps, nbr_key) {
-					nbr_grp := slotmap_get(friendly_grps, nbr_key)
+				} else if nbr_grp, ok := store_get(friendly_grps, nbr_key); ok {
 					if group_life(nbr_grp) == 1 && nbr_grp.extendable {
 						osc_pen += 1
 					}

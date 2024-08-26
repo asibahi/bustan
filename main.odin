@@ -11,8 +11,10 @@ main :: proc() {
 	ok = game_make_move(&game, Move{hex = {0, 0}, tile = tile_from_id(63, .Guest)})
 	fmt.printfln("%v", ok)
 
-	ok = game_make_move(&game, Move{hex = {N, 0}, tile = tile_from_id(63, .Host)})
+	ok = game_make_move(&game, Move{hex = RIGHT, tile = ~{.Right}})
 	fmt.printfln("%v", ok)
 
-	// fmt.printfln("%v", game.board) 
+	for key in game.groups_map {
+		fmt.printf("%v, ", transmute(u8)key)
+	}
 }
