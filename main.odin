@@ -27,7 +27,7 @@ main :: proc() {
 			break
 		}
 
-		board_print(game.board)
+		board_print(game.board, game.groups_map)
 
 		buffer: [2]u8
 		os.read(os.stdin, buffer[:])
