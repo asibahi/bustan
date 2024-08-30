@@ -1,18 +1,36 @@
 package bustan
 
 import "core:fmt"
+import "core:strings"
+import "core:os"
 
 main :: proc() {
 	game := game_init()
 	defer game_destroy(game)
 
-	ok: bool
+	moves := strings.split(MOVE_LIST, ";")
 
-	ok = game_make_move(&game, Move{hex = {0, 0}, tile = tile_from_id(63, .Guest)})
-	// fmt.printfln("%v", ok)
+	for m, idx in moves {
+		move: Move
+		ok: bool
+		move, ok = move_from_mindsports_parse(m)
+		if !ok {
+			fmt.println("MOVE PARSER BROKE")
+			break
+		}
 
-	ok = game_make_move(&game, Move{hex = RIGHT, tile = tile_from_id(0o77, .Host)})
-	// fmt.printfln("%v", ok)
+		fmt.println(idx + 1, m)
 
-	board_print(game.board)
+		ok = game_make_move(&game, move)
+		if !ok {
+			fmt.println("COULD NOT MAKE MOVE")
+			break
+		}
+
+		board_print(game.board)
+
+		buffer: [2]u8
+		os.read(os.stdin, buffer[:])
+	}
+
 }
