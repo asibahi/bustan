@@ -13,7 +13,7 @@ main :: proc() {
 	for m, idx in moves {
 		move: Move
 		ok: bool
-		move, ok = move_from_mindsports_parse(m)
+		move, ok = move_mindsports_parse(m)
 		if !ok {
 			fmt.println("MOVE PARSER BROKE")
 			break
