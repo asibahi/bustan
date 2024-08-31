@@ -1,4 +1,3 @@
 bustan
+**/build
 **/.DS_Store
-**/target
-**/Cargo.lock

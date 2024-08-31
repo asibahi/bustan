@@ -1,0 +1,25 @@
+{
+  "version": "2.0.0",
+  "command": "",
+  "args": [],
+  "tasks": [
+    {
+      "label": "mkdir",
+      "type": "shell",
+      "command": "mkdir -p build",
+    },
+    {
+      "label": "build",
+      "type": "shell",
+      "command": "odin build . -debug -out:build/debug",
+      "group": "build"
+    },
+    {
+      "label": "Build",
+      "dependsOn": [
+        "mkdir",
+        "build"
+      ]
+    }
+  ]
+}
