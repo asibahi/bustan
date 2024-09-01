@@ -2,7 +2,6 @@ package bustan
 
 import "core:fmt"
 import "core:strings"
-import "core:os"
 
 main :: proc() {
 	game := game_init()
@@ -28,9 +27,6 @@ main :: proc() {
 		}
 
 		board_print(game.board, game.groups_map)
-
-		buffer: [2]u8
-		os.read(os.stdin, buffer[:])
 	}
 
 }

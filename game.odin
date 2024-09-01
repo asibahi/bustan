@@ -189,6 +189,7 @@ game_inner_update_state :: proc(move: Move, game: ^Game) {
 		}
 	}
 	blessed_grp.state[hex_to_index(move.hex)] |= .Member_Tile
+	game.groups_map[hex_to_index(move.hex)] = blessed_key
 
 	// == Update liberties
 	for i in 0 ..< new_libs.len {
@@ -274,9 +275,9 @@ game_inner_update_state :: proc(move: Move, game: ^Game) {
 	}
 
 	// == merge level 2 surrounding friendlies into blessed group
-	for key in level_2_surrounding_friendlies {
+	for key in level_2_surrounding_friendlies do if key != blessed_key {
 		temp_grp, ok := store_remove(friendly_grps, key)
-		assert(ok, "I have no idea what this is asserting, right now")
+		assert(ok, "level 2 surrounding friendly does not exist.")
 
 		blessed_grp.state |= temp_grp.state
 		blessed_grp.extendable &= temp_grp.extendable
