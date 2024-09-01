@@ -46,7 +46,7 @@ board_print :: proc(board: Board, grp_map: [CELL_COUNT]Group_Handle) {
 				strings.builder_reset(&tiles_buffer)
 				strings.builder_reset(&grps_buffer)
 			}
-			for i in 0 ..< abs(row) {
+			for _ in 0 ..< abs(row) {
 				strings.write_string(&tiles_buffer, "  ")
 				strings.write_string(&grps_buffer, "  ")
 			}
