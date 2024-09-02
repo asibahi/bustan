@@ -1,8 +1,8 @@
 package bustan
 
 /*
- this module is only used for converting the notation in:
- https://mindsports.nl/index.php/dagaz/131-workshops/955-dominions-example-workshop
+ this module is only used for converting the notation in source code ofL
+ https://mindsports.nl/index.php/the-pit/526-dominions
 */
 
 import "core:strconv"
